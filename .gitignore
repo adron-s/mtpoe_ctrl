@@ -1,0 +1,4 @@
+tests/*
+bins/*
+objs/*
+!.gitignore
