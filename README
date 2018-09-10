@@ -1,7 +1,7 @@
 Программа для управления микротиковским PoE V2 на базе микроконтроллера ATtiny 461a
 Управление производится путем отправки команд по SPI шине. Посредником между userspace-ом
 и ядром выспутает spidev драйвер и как следствие в mach-rb-*.c файле инита платформы необходимо
-прописать примерно следуюее:
+прописать примерно следующее:
 
 /* RB 750-r2(HB) with POE v2 */
 #define RB750R2_ATTINY_CS			12
@@ -34,3 +34,5 @@ static void __init rb750r2_setup(void)
 	ath79_register_spi(&rb750r2spi_data, rb750r2spi_info, ARRAY_SIZE(rb750r2spi_info));
 	...
 }
+
+Лицензия GNU GPL V3
