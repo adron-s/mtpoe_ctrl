@@ -1,4 +1,19 @@
 Программа для управления микротиковским PoE V2 на базе микроконтроллера ATtiny 461a
+
+Лицензия GNU GPL V3
+
+Примеры использования:
+	mtpoe_ctrl -dumpvars #показывает значение переменных-параметров
+	mtpoe_ctrl #показывает полную информацию о работе PoE контроллера
+	mtpoe_ctrl --action=get_fw_ver #выводит версию прошивки PoE микроконтроллера ATtiny
+  mtpoe_ctrl --action=get_voltage #выводит входное напряжения
+  mtpoe_ctrl --action=get_temperature #выводит температуру
+	mtpoe_ctrl --action=get_poe #показывает состояние PoE для портов. 0->ether2, 1..2, 3->ether5
+	mtpoe_ctrl --action=set_poe --port=0 --val=1 #force-on PoE для порта ether2
+	mtpoe_ctrl --action=set_poe --port=1 --val=2 #auto-on PoE для порта ether3
+	mtpoe_ctrl --action=set_poe --port=2 --val=1 #force-on PoE для порта ether4
+	mtpoe_ctrl --action=set_poe --port=3 --val=0 #выключить PoE для порта ether5
+
 Управление производится путем отправки команд по SPI шине. Посредником между userspace-ом
 и ядром выспутает spidev драйвер и как следствие в mach-rb-*.c файле инита платформы необходимо
 прописать примерно следующее:
@@ -7,8 +22,8 @@
 #define RB750R2_ATTINY_CS			12
 #define RB750R2_ATTINY_RESET	14
 static int rb750r2spi_cs_gpios[3] = {
-	-ENOENT, /* nor flash. автоматически управляется самим spi контроллером. */
-	rb750r2SSR_STROBE, /* 74x164 */
+	-ENOENT, /* NOR flash. CS автоматически управляется самим spi контроллером. */
+	RB750R2SSR_CS, /* 74x164 gpio extender */
 	RB750R2_ATTINY_CS, /* ATtiny PoE v2 */
 };
 static struct ath79_spi_platform_data rb750r2spi_data __initdata = {
@@ -34,5 +49,3 @@ static void __init rb750r2_setup(void)
 	ath79_register_spi(&rb750r2spi_data, rb750r2spi_info, ARRAY_SIZE(rb750r2spi_info));
 	...
 }
-
-Лицензия GNU GPL V3
