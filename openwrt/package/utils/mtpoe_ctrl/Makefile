@@ -5,9 +5,9 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mtpoe_ctrl
-PKG_SOURCE_VERSION:=f68368f6d92d8b9fd6e3050b2455c44c2ab3203b
+PKG_SOURCE_VERSION:=04350a3135a4b2f558334e580737e992cdb04eb7
 PKG_VERSION:=1.00
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/adron-s/mtpoe_ctrl.git
@@ -34,6 +34,7 @@ endef
 define Package/mtpoe_ctrl/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/bins/mtpoe_ctrl $(1)/usr/bin/
+	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/openwrt/etc/init.d/mtpoe_ctrl $(1)/etc/init.d
 endef
 
