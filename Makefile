@@ -1,0 +1,63 @@
+VERSION := 1.00
+
+ifdef CROSS_COMPILE
+	CC := $(CROSS_COMPILE)-gcc
+	OBJCOPY := $(CROSS_COMPILE)-objcopy
+endif
+
+ifndef CC
+	CC := cc
+endif
+ifndef OBJCOPY
+	OBJCOPY := objcopy
+endif
+
+CFLAGS := -O2 -Wall
+EXT_LIBS := -l uci -l ubox
+
+#получим нашу корневую директорию
+ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+
+EXTRA_CFLAGS += -DVERSION='"$(VERSION)"'
+
+mtpoe_ctrl-h := mtpoe_ctrl.h params.h signals.h
+mtpoe_ctrl-objs-c := mk_com.c
+mtpoe_ctrl-objs := $(mtpoe_ctrl-objs-c:%.c=objs/%.o)
+mtpoe_ctrl-bins-c := mtpoe_ctrl.c
+mtpoe_ctrl-bins := $(mtpoe_ctrl-bins-c:%.c=bins/%)
+
+#all идет первой и привязана к бинарникам bins/*
+all: $(mtpoe_ctrl-bins)
+
+#зависимости
+$(mtpoe_ctrl-h):
+$(mtpoe_ctrl-objs): $(mtpoe_ctrl-h)
+$(mtpoe_ctrl-bins): $(mtpoe_ctrl-objs)
+
+$(mtpoe_ctrl-bins): bins/%: %.c
+	@mkdir -p bins
+	$(CC) $(CFLAGS) $(LDFLAGS) $(EXTRA_CFLAGS) $< -o $@ $(EXT_LIBS) $(mtpoe_ctrl-objs)
+	$(OBJCOPY) --strip-all $@ $@
+
+$(mtpoe_ctrl-objs): objs/%.o: %.c
+	@mkdir -p objs
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $< -c -o $@
+
+clean:
+	rm -f bins/* objs/*
+
+#для отладки
+mips:
+	$(eval LEDE_SOURCE := /home/prog/openwrt/lede-all/new-lede-rb941/source)
+	$(eval TARGET_DIR := $(LEDE_SOURCE)/staging_dir/target-mips_24kc_musl-1.1.16)
+	@STAGING_DIR=$(LEDE_SOURCE)/staging_dir/toolchain-mips_24kc_gcc-5.4.0_musl-1.1.16 \
+	CROSS_COMPILE=$$STAGING_DIR/bin/mips-openwrt-linux \
+	EXTRA_CFLAGS="-I${TARGET_DIR}/usr/include -L${TARGET_DIR}/usr/lib" \
+	make all
+
+#для отладки
+mips_nc:
+	make mips
+	@echo ""
+	@echo "Do NetCat port port 1111"
+	@cat ./bins/mtpoe_ctrl | nc -l -p 1111 -q 1

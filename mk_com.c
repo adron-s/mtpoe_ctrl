@@ -30,7 +30,7 @@ static void pabort(char *ed){
 static unsigned char dallas_crc8(const unsigned char *data, const unsigned int size){
 	unsigned char crc = 0;
 	unsigned int i;
-	for(int i = 0; i < size; ++i){
+	for(i = 0; i < size; ++i){
 		unsigned char inbyte = data[i];
 		unsigned char j;
 		for(j = 0; j < 8; ++j){
@@ -108,7 +108,6 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	uint8_t rx_crc;
 	char tmp[255];
 	uint8_t *p;
-	uint8_t *cri_ptr = rx + iobuf_len;
 	struct spi_ioc_transfer tr = {
 		.tx_buf = (unsigned long)tx,
 		.rx_buf = (unsigned long)rx,
