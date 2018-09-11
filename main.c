@@ -6,15 +6,21 @@
 #include <getopt.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <errno.h>
+#include <uci.h>
 #include <linux/types.h>
 #include <signal.h>
 #include "signals.h"
 #include "main.h"
 
+//ключ субконфига uci->network в котором находятся настройки PoE
+#define MTIK_POE_UCI_CONFIG_KEY "mtik_poe"
+//сколько всего PoE портов
+#define POE_PORTS_N 4
+
 int spidev_fd = -1;
-
 uint8_t *spidev_query(int, uint8_t, uint8_t, uint8_t);
-
+static char err_mess[255];
 /*************************************************************************************
   закрывает ioctl файл и умирает напечатав ошибку
 */
@@ -38,6 +44,13 @@ void die(int code){
   }
   exit(code);
 }//-----------------------------------------------------------------------------------
+
+/* умереть и выдать осмысленное сообщение о причине смерти */
+#define die_and_mess(code, mess, args...){						\
+	snprintf(err_mess, sizeof(err_mess), mess, ##args);	\
+	err_descr = err_mess;																\
+	die(code);																					\
+}
 
 /* макросы для упрощения синтаксиса простых action функций */
 #define scobs(code) { 									 							\
@@ -73,7 +86,7 @@ void parse_options(int argc, char *argv[]){
 /*************************************************************************************
   выводит данные о номере версии прошивки poe микроконтроллера
 */
-void do_action_get_fw_ver(){
+void do_action_get_fw_ver(void){
 	do_sq(0x41, {
 		printf("  %s: %d.%02d%s\n", "fw_version", ansv[0], ansv[1], need_coma());
 	});
@@ -82,7 +95,7 @@ void do_action_get_fw_ver(){
 /*************************************************************************************
   выводит данные о входном напряжении на устройстве
 */
-void do_action_get_voltage(){
+void do_action_get_voltage(void){
 	do_sq(0x42, {
 		float v = (x * 35.7 / 1024);
 		printf("  %s: %.2f%s\n", "voltage", v, need_coma());
@@ -92,24 +105,39 @@ void do_action_get_voltage(){
 /*************************************************************************************
   выводит данные о температуре на устройстве
 */
-void do_action_get_temperature(){
+void do_action_get_temperature(void){
 	do_sq(0x43, {
 		int c = x - 0x113; //зависимость линейная. 0C это 0x113
 		printf("  %s: %d%s\n", "temperature", c, need_coma());
 	});
 }//-----------------------------------------------------------------------------------
 
+
+/*************************************************************************************
+  возвращает массив с текущим состоянием PoE портов
+*/
+uint8_t *get_poe_ports_state(void){
+	int a;
+  static uint8_t nps[POE_PORTS_N];
+	uint8_t *ansv = spidev_query(spidev_fd, 0x45, 0, 0);
+	uint32_t x = ansv[0] << 8 | ansv[1];
+	for(a = 0; a < POE_PORTS_N; a++){
+		nps[a] = x & 0xF;
+		x >>= 4;
+	}
+	return nps;
+}//-----------------------------------------------------------------------------------
+
 /*************************************************************************************
   выводит данные о состоянии PoE(включено ли пое, на каких портах и в каком режиме)
 */
-void do_action_get_poe(){
-	do_sq(0x45, {
-		int a;
+void do_action_get_poe(void){
+	int a;
+	uint8_t *nps = get_poe_ports_state();
+	scobs({
 		printf("  %s: [ ", "poe_state");
-		for(a = 0; a < 4; a++){
-			uint8_t ps = x & 0xF;
-			x >>= 4;
-			printf("%d%s ", ps, a + 1 < 4 ? "," : "");
+		for(a = 0; a < POE_PORTS_N; a++){
+			printf("%d%s ", nps[a], a + 1 < POE_PORTS_N ? "," : "");
 		}
 		printf("]%s\n", need_coma());
 	});
@@ -118,35 +146,90 @@ void do_action_get_poe(){
 /*************************************************************************************
   устанавливает состояние определенного PoE порта
 */
-void do_action_set_poe(){
+void __set_poe(int port, int val){
+	uint8_t *ansv = spidev_query(spidev_fd, 0x44, POE_PORTS_N - port, val);
+	uint32_t must_be_ret = POE_PORTS_N - port;
+	must_be_ret <<= 8;
+	must_be_ret += val;
+	uint32_t x = ansv[0] << 8 | ansv[1];
+	if(x != must_be_ret){
+		die_and_mess(-21,"status must be 0x%x but it 0x%x",
+			must_be_ret, x);
+		err_descr = err_mess;
+		die(-21);
+	}
+}//-----------------------------------------------------------------------------------
+/*************************************************************************************
+  action для устанавки состояние определенного PoE порта
+*/
+void do_action_set_poe(void){
 	period = 0;
-	static char err_mess[255];
-	if(port < 0 || port > 3){
-		strcpy(err_mess, "port value must be 0..3");
-		err_descr = err_mess;
-		die(-20);
-	}
-	if(val < 0 || val > 2){
-		strcpy(err_mess, "PoE value must be 0..2");
-		err_descr = err_mess;
-		die(-20);
-	}
-	{
-		uint8_t *ansv = spidev_query(spidev_fd, 0x44, 4 - port, val);
-		uint32_t must_be_ret = 4 - port;
-		must_be_ret <<= 8;
-		must_be_ret += val;
-		uint32_t x = ansv[0] << 8 | ansv[1];
-		if(x != must_be_ret){
-			snprintf(err_mess, sizeof(err_mess), "status must be 0x%x but it 0x%x",
-				must_be_ret, x);
-			err_descr = err_mess;
-			die(-21);
+	if(port < 0 || port > 3)
+		die_and_mess(-20, "port value must be 0..3");
+	if(val < 0 || val > 2)
+		die_and_mess(-20, "PoE value must be 0..2");
+	__set_poe(port, val);
+	scobs({
+		printf("  status: \"ok\"\n");
+	});
+}//-----------------------------------------------------------------------------------
+
+/*************************************************************************************
+  посредством UCI загружает состояния PoE портов
+*/
+void do_action_load_poe_from_uci(void){
+  struct uci_context *ctx = NULL;
+  struct uci_package *p = NULL;
+  struct uci_element *e;
+  struct uci_section *s;
+  const char *o_val;
+  int a;
+  int processed_ports = 0;
+  period = 0;
+  //получмм текущее состояние poe портов
+	uint8_t *nps = get_poe_ports_state();
+  ctx = uci_alloc_context();
+  if(!ctx)
+  	die_and_mess(-22, "Can't alloc UCI context: %s", strerror(errno));
+  ctx->flags &= ~UCI_FLAG_STRICT;
+  if(uci_load(ctx, "network", &p) != UCI_OK){
+    uci_free_context(ctx);
+    exit(-2);
+  }
+  uci_foreach_element(&p->sections, e){
+    s = uci_to_section(e);
+    if(s->type && !strcmp(s->type, MTIK_POE_UCI_CONFIG_KEY)){
+    	for(a = 0; a < POE_PORTS_N; a++){
+    		char port_str[ ] = "port0";
+    		int val;
+    		port_str[4] = '0' + a;
+	      o_val = uci_lookup_option_string(ctx, s, port_str);
+				if(!o_val)
+					continue; //порт с номером $a не указан
+				val = o_val[0] - '0';
+				if(val < 0 || val > 2){
+				 	die_and_mess(-23, "PoE %s has wrong value '%s'. Must be 0..2 !",
+				 		port_str, o_val);
+					continue;
+				}
+				if(nps[a] != val){
+					__set_poe(a, val);
+					processed_ports++;
+					nps[a] = val;
+				}
+			}
 		}
-		scobs({
-			printf("  status: \"ok\"\n");
-		});
 	}
+  uci_free_context(ctx);
+	scobs({
+		printf("  status: \"ok\",\n");
+		printf("  processed_ports: %d,\n", processed_ports);
+		printf("  %s: [ ", "poe_state");
+		for(a = 0; a < POE_PORTS_N; a++){
+			printf("%d%s ", nps[a], a + 1 < POE_PORTS_N ? "," : "");
+		}
+		printf("]%s\n", need_coma());
+	});
 }//-----------------------------------------------------------------------------------
 
 /*************************************************************************************
@@ -171,6 +254,7 @@ const struct my_action_opt my_actions[] = {
   define_my_action(get_temperature), //вывод температуры
   define_my_action(get_poe), //вывод состояния PoE для портов
   define_my_action(set_poe), //устанавливает состояние force-on для указанного PoE порта
+  define_my_action(load_poe_from_uci), //посредством UCI загружает состояния PoE портов
   { NULL, NULL }
 };
 

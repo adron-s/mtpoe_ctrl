@@ -13,6 +13,7 @@
 	mtpoe_ctrl --action=set_poe --port=1 --val=2 #auto-on PoE для порта ether3
 	mtpoe_ctrl --action=set_poe --port=2 --val=1 #force-on PoE для порта ether4
 	mtpoe_ctrl --action=set_poe --port=3 --val=0 #выключить PoE для порта ether5
+	mtpoe_ctrl --action=load_poe_from_uci #загрузить PoE настройки портов из uci->network->mtik_poe
 
 Управление производится путем отправки команд по SPI шине. Посредником между userspace-ом
 и ядром выспутает spidev драйвер и как следствие в mach-rb-*.c файле инита платформы необходимо

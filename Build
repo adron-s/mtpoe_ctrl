@@ -7,12 +7,13 @@ mkdir -p ./bins
 
 [ "${1}" = "mips" ] && {
 	export STAGING_DIR=/home/prog/openwrt/lede-all/new-lede-rb941/source/staging_dir/toolchain-mips_24kc_gcc-5.4.0_musl-1.1.16
-	GCC=$STAGING_DIR/bin/mips-openwrt-linux-gcc
+	TARGET_DIR=${STAGING_DIR}/../target-mips_24kc_musl-1.1.16
+	GCC="$STAGING_DIR/bin/mips-openwrt-linux-gcc -I${TARGET_DIR}/usr/include -L${TARGET_DIR}/usr/lib"
 }
 
 ret=0
 $GCC ./mk_com.c -c -o ./objs/mk_com.o && \
-$GCC ./main.c -o ./bins/mtpoe_ctrl ./objs/mk_com.o && \
+$GCC ./main.c -o ./bins/mtpoe_ctrl ./objs/mk_com.o -luci -lubox && \
 ret=1
 
 [ "${1}" = "mips" -a ${ret} -eq 1 ] && {
