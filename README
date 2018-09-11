@@ -6,8 +6,8 @@
 	mtpoe_ctrl -dumpvars #показывает значение переменных-параметров
 	mtpoe_ctrl #показывает полную информацию о работе PoE контроллера
 	mtpoe_ctrl --action=get_fw_ver #выводит версию прошивки PoE микроконтроллера ATtiny
-  mtpoe_ctrl --action=get_voltage #выводит входное напряжения
-  mtpoe_ctrl --action=get_temperature #выводит температуру
+	mtpoe_ctrl --action=get_voltage #выводит входное напряжения
+	mtpoe_ctrl --action=get_temperature #выводит температуру
 	mtpoe_ctrl --action=get_poe #показывает состояние PoE для портов. 0->ether2, 1..2, 3->ether5
 	mtpoe_ctrl --action=set_poe --port=0 --val=1 #force-on PoE для порта ether2
 	mtpoe_ctrl --action=set_poe --port=1 --val=2 #auto-on PoE для порта ether3
