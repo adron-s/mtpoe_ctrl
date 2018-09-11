@@ -16,6 +16,8 @@ char action[255] = "noop"; //действие(add, del, ...)
 char dev_file[30] = DEFAULT_DEV_FILE; //файл для общения с spidev модулем
 int period = 1; //период повторения главного цикла
 int verbose = 0; //быть более разговорчивым
+int port = -1; //номер порта. используется для set_poe
+int val = -1; //значение. напрнимер 0, 1 или 2 для set_poe
 
 int single = 1; //запрос о выводе данных касается единичной команды или их множество
 char *err_descr = NULL; //подробное описание произошедшей ошибки
@@ -46,6 +48,8 @@ enum {
   opt_dev_file,
   opt_period,
   opt_verbose,
+  opt_port,
+  opt_val,
   opt_MAX
 };
 
@@ -58,6 +62,8 @@ const struct my_option my_options[] = {
   define_str_opt(dev_file),
   define_int_opt(period, 0, 3600),
   define_flag_opt(verbose),
+  define_int_opt(port, 0, 3),
+  define_int_opt(val, 0, 0xFFFF),
   define_empty_opt()
 };
 

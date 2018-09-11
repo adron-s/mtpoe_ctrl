@@ -16,7 +16,7 @@ int spidev_fd = -1;
 uint8_t *spidev_query(int, uint8_t, uint8_t, uint8_t);
 
 /*************************************************************************************
-  закрывает ioctl файл и умирает
+  закрывает ioctl файл и умирает напечатав ошибку
 */
 void die(int code){
   if(spidev_fd > 0){
@@ -75,7 +75,7 @@ void parse_options(int argc, char *argv[]){
 */
 void do_action_get_fw_ver(){
 	do_sq(0x41, {
-		printf("  %s: \"%d.%02d\"%s\n", "fw_version", ansv[0], ansv[1], need_coma());
+		printf("  %s: %d.%02d%s\n", "fw_version", ansv[0], ansv[1], need_coma());
 	});
 }//-----------------------------------------------------------------------------------
 
@@ -85,7 +85,7 @@ void do_action_get_fw_ver(){
 void do_action_get_voltage(){
 	do_sq(0x42, {
 		float v = (x * 35.7 / 1024);
-		printf("  %s: \"%.2f\"%s\n", "voltage", v, need_coma());
+		printf("  %s: %.2f%s\n", "voltage", v, need_coma());
 	});
 }//-----------------------------------------------------------------------------------
 
@@ -95,8 +95,58 @@ void do_action_get_voltage(){
 void do_action_get_temperature(){
 	do_sq(0x43, {
 		int c = x - 0x113; //зависимость линейная. 0C это 0x113
-		printf("  %s: \"%d\"%s\n", "temperature", c, need_coma());
+		printf("  %s: %d%s\n", "temperature", c, need_coma());
 	});
+}//-----------------------------------------------------------------------------------
+
+/*************************************************************************************
+  выводит данные о состоянии PoE(включено ли пое, на каких портах и в каком режиме)
+*/
+void do_action_get_poe(){
+	do_sq(0x45, {
+		int a;
+		printf("  %s: [ ", "poe_state");
+		for(a = 0; a < 4; a++){
+			uint8_t ps = x & 0xF;
+			x >>= 4;
+			printf("%d%s ", ps, a + 1 < 4 ? "," : "");
+		}
+		printf("]%s\n", need_coma());
+	});
+}//-----------------------------------------------------------------------------------
+
+/*************************************************************************************
+  устанавливает состояние определенного PoE порта
+*/
+void do_action_set_poe(){
+	period = 0;
+	static char err_mess[255];
+	if(port < 0 || port > 3){
+		strcpy(err_mess, "port value must be 0..3");
+		err_descr = err_mess;
+		die(-20);
+	}
+	if(val < 0 || val > 2){
+		strcpy(err_mess, "PoE value must be 0..2");
+		err_descr = err_mess;
+		die(-20);
+	}
+	{
+		uint8_t *ansv = spidev_query(spidev_fd, 0x44, 4 - port, val);
+		uint32_t must_be_ret = 4 - port;
+		must_be_ret <<= 8;
+		must_be_ret += val;
+		uint32_t x = ansv[0] << 8 | ansv[1];
+		if(x != must_be_ret){
+			snprintf(err_mess, sizeof(err_mess), "status must be 0x%x but it 0x%x",
+				must_be_ret, x);
+			err_descr = err_mess;
+			die(-21);
+		}
+		scobs({
+			printf("  status: \"ok\"\n");
+		});
+	}
 }//-----------------------------------------------------------------------------------
 
 /*************************************************************************************
@@ -107,8 +157,9 @@ void do_action_info(){
 	{ printf("{\n"); scop = 1; }
 	do_action_get_fw_ver();
 	do_action_get_voltage();
-	single = -100; //последняя выводимая переменная. запятая не нужна.
 	do_action_get_temperature();
+	single = -100; //последняя выводимая переменная. запятая не нужна.
+	do_action_get_poe();
 	printf("}\n");
 }//-----------------------------------------------------------------------------------
 
@@ -118,12 +169,14 @@ const struct my_action_opt my_actions[] = {
   define_my_action(get_fw_ver), //вывод версии прошивки
   define_my_action(get_voltage), //вывод входного напряжения
   define_my_action(get_temperature), //вывод температуры
+  define_my_action(get_poe), //вывод состояния PoE для портов
+  define_my_action(set_poe), //устанавливает состояние force-on для указанного PoE порта
   { NULL, NULL }
 };
 
 /*************************************************************************************
-ищет значение переменной action среди известных my_actions и выполняет
-react в случае если поиск был успешным */
+  ищет значение переменной action среди известных my_actions и выполняет
+  react в случае если поиск был успешным */
 #define my_action_react(react){                           \
   const struct my_action_opt *my_action = &my_actions[0]; \
   while(my_action->name){                                 \
