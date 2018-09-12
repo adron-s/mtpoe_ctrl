@@ -5,9 +5,9 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mtpoe_ctrl
-PKG_SOURCE_VERSION:=609cb4c695f5bcaa70522bd0d8e488a9fecf6687
+PKG_SOURCE_VERSION:=63c10420483fefa9b2772135219cd69fd0852f1b
 PKG_VERSION:=1.01
-PKG_RELEASE:=4
+PKG_RELEASE:=5
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/adron-s/mtpoe_ctrl.git
