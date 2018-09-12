@@ -8,29 +8,27 @@
 //сколько всего PoE портов
 #define POE_PORTS_N 4
 
-int spidev_fd = -1;
-uint8_t *spidev_query(int, uint8_t, uint8_t, uint8_t);
-
-
 int need_exit = 0; //еще не пора выходить
+int spidev_fd = -1; //дескриптор spidev файла
+
+int single = 1; //запрос о выводе данных касается единичной команды или их множество
+char *err_descr = NULL; //подробное описание произошедшей ошибки
+int scop = 1; //уже была напечатана открывающаяся скобка
 
 /* переменные со значениями опций.
    не забывай при добавлении новой переменной так же вписывать
    ее в opt_X enum и my_options
 */
-
 int dumpvars = 0; //вывод значений переменных
 char action[255] = "noop"; //действие(add, del, ...)
-char dev_file[30] = DEFAULT_DEV_FILE; //файл для общения с spidev модулем
+char dev_file[32] = DEFAULT_DEV_FILE; //файл для общения с spidev модулем
+//ключ субконфига uci->network в котором находятся настройки PoE
+char poe_uci_config_key[32] = MTIK_POE_UCI_CONFIG_KEY;
 int period = 0; //период повторения главного цикла
 int verbose = 0; //быть более разговорчивым
 int port = -1; //номер порта. используется для set_poe
 int val = -1; //значение. напрнимер 0, 1 или 2 для set_poe
 int version = 0; //нужно показать версию и выйти
-
-int single = 1; //запрос о выводе данных касается единичной команды или их множество
-char *err_descr = NULL; //подробное описание произошедшей ошибки
-int scop = 1; //уже была напечатана открывающаяся скобка
 
 //структура с описанием нашей опции
 struct my_option{
@@ -55,6 +53,7 @@ enum {
   opt_dumpvars,
   opt_action,
   opt_dev_file,
+  opt_poe_uci_config_key,
   opt_period,
   opt_verbose,
   opt_port,
@@ -70,6 +69,7 @@ const struct my_option my_options[] = {
   define_flag_opt(dumpvars),
   define_str_opt(action),
   define_str_opt(dev_file),
+  define_str_opt(poe_uci_config_key),
   define_int_opt(period, 0, 3600),
   define_flag_opt(verbose),
   define_int_opt(port, 0, 3),

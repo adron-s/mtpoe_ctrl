@@ -10,6 +10,7 @@
 #include <linux/spi/spidev.h>
 #include <errno.h>
 
+/* экспорт ф-й и переменных из mtpoe_ctrl.c */
 void die(int code);
 extern char *err_descr; //подробное описание произошедшей ошибки
 extern int verbose; //быть более разговорчивым
@@ -62,24 +63,24 @@ static void spidev_init(int fd){
 		return;
 	/* spi mode */
 	ret = ioctl(fd, SPI_IOC_WR_MODE, &mode);
-	if (ret == -1)
+	if(ret == -1)
 		pabort("can't set spi mode");
 	ret = ioctl(fd, SPI_IOC_RD_MODE, &mode);
-	if (ret == -1)
+	if(ret == -1)
 		pabort("can't get spi mode");
 	/* bits per word */
 	ret = ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &bits);
-	if (ret == -1)
+	if(ret == -1)
 		pabort("can't set bits per word");
 	ret = ioctl(fd, SPI_IOC_RD_BITS_PER_WORD, &bits);
-	if (ret == -1)
+	if(ret == -1)
 		pabort("can't get bits per word");
 	/* max speed hz */
 	ret = ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
-	if (ret == -1)
+	if(ret == -1)
 		pabort("can't set max speed hz");
 	ret = ioctl(fd, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
-	if (ret == -1)
+	if(ret == -1)
 		pabort("can't get max speed hz");
 	if(verbose){
 		fprintf(stderr, "spi mode: %d\n", mode);
@@ -89,6 +90,7 @@ static void spidev_init(int fd){
 	fd_need_init = 0;
 }//-----------------------------------------------------------------------------------
 
+/* печатает tx или rx буфер если включен режим verbose */
 #define dump_buf_if_verb(bs){					 \
 	if(verbose){												 \
 		int a;														 \
@@ -118,7 +120,7 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	};
 	//выполним инит spidev fd
 	spidev_init(fd);
-	//подготовим байты в буфере tx
+	//подготовим буферы
 	memset(tx, 0x0, sizeof(tx));
 	memset(rx, 0x0, sizeof(rx));
 	p = tx;
@@ -131,14 +133,14 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	//выполняем ioctl запрос
 	ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
 	dump_buf_if_verb(rx);
-	if (ret < 1)
+	if(ret < 1)
 		pabort("can't send spi message");
 	if(ret != iobuf_len){
 		snprintf(tmp, sizeof(tmp), "expected ansver len != ret len: %zu vs %d",
 			iobuf_len, ret);
 		pabort(tmp);
 	}
-	/* проверим то что получили от микроконтроллера */
+	/* проверим то, что получили от микроконтроллера */
 	p = rx + 4;	//p указывает на начало ответа(+4 байта)
 	//проверим что rx[0] == tx_crc
 	if(*(p++) != tx_crc)
