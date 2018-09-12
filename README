@@ -1,36 +1,43 @@
-Программа для управления микротиковским PoE V2 на базе микроконтроллера ATtiny 461a
+Program for manage the Microtiks PoE V2 based on a microcontroller ATtiny 461a
 
-Лицензия GNU GPL V3
+Licence is GNU GPL V3
 
-Примеры использования:
-	mtpoe_ctrl -dumpvars #показывает значение переменных-параметров
-	mtpoe_ctrl #показывает полную информацию о работе PoE контроллера
-	mtpoe_ctrl --action=get_fw_ver #выводит версию прошивки PoE микроконтроллера ATtiny
-	mtpoe_ctrl --action=get_voltage #выводит входное напряжения
-	mtpoe_ctrl --action=get_temperature #выводит температуру
-	mtpoe_ctrl --action=get_poe #показывает состояние PoE для портов. 0->ether2, 1..2, 3->ether5
-	mtpoe_ctrl --action=set_poe --port=0 --val=1 #force-on PoE для порта ether2
-	mtpoe_ctrl --action=set_poe --port=1 --val=2 #auto-on PoE для порта ether3
-	mtpoe_ctrl --action=set_poe --port=2 --val=1 #force-on PoE для порта ether4
-	mtpoe_ctrl --action=set_poe --port=3 --val=0 #выключить PoE для порта ether5
-	mtpoe_ctrl --action=load_poe_from_uci #загрузить PoE настройки портов из uci->network->mtik_poe
+Examples of using:
+	mtpoe_ctrl -dumpvars #shows the values of parameter variables
+	mtpoe_ctrl #shows full information about PoE controller state/work
+	mtpoe_ctrl --action=get_fw_ver #shows firmware version of the Attiny PoE microcontroller
+	mtpoe_ctrl --action=get_voltage #shows the input voltage
+	mtpoe_ctrl --action=get_temperature #shows the temperature
+	mtpoe_ctrl --action=get_poe #shows the status of PoE for the ports. 0->ether2, 1..2, 3->ether5
+	mtpoe_ctrl --action=set_poe --port=0 --val=1 #force-on PoE for port ether2
+	mtpoe_ctrl --action=set_poe --port=1 --val=2 #auto-on PoE for port ether3
+	mtpoe_ctrl --action=set_poe --port=2 --val=1 #force-on PoE for port ether4
+	mtpoe_ctrl --action=set_poe --port=3 --val=0 #turn off PoE for port ether5
+	mtpoe_ctrl --action=load_poe_from_uci #load PoE port settings from uci->network->mtik_poe
 
-Управление производится путем отправки команд по SPI шине. Посредником между userspace-ом
-и ядром выспутает spidev драйвер и как следствие в mach-rb-*.c файле инита платформы необходимо
-прописать примерно следующее:
+In /etc/config/network the mtik_poe section should be present:
+config mtik_poe
+	option port0 '1'
+	option port1 '0'
+	option port2 '1'
+	option port3 '0'
+
+Control is performed by sending commands via SPI bus. The mediator between userspace
+and kernel is spidev driver and as a consequence in mach-rb-*.c init file of the platform it is
+necessary to write about the following:
 
 /* RB 750-r2(HB) with POE v2 */
 #define RB750R2_ATTINY_CS			12
 #define RB750R2_ATTINY_RESET	14
 static int rb750r2spi_cs_gpios[3] = {
-	-ENOENT, /* NOR flash. CS автоматически управляется самим spi контроллером. */
+	-ENOENT, /* NOR flash. CS is automatically controlled by the spi controller itself. */
 	RB750R2SSR_CS, /* 74x164 gpio extender */
 	RB750R2_ATTINY_CS, /* ATtiny PoE v2 */
 };
 static struct ath79_spi_platform_data rb750r2spi_data __initdata = {
 	.bus_num = 0,
-	.num_chipselect = 3, /* CS-ов у нас три штуки */
-	.cs_gpios = rb750r2spi_cs_gpios, /* какие именно cs-ы */
+	.num_chipselect = 3, /* We have three CS */
+	.cs_gpios = rb750r2spi_cs_gpios, /* which CS */
 };
 static struct spi_board_info rb750r2spi_info[] = {
 	...
