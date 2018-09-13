@@ -114,9 +114,11 @@ static void spidev_init(int fd){
 */
 uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	int ret;
+	const int max_retry_count = 2; //сколько retry пытаться делать
 	uint8_t tx_crc;
 	uint8_t rx_crc;
 	uint8_t *p;
+	int a;
 	struct spi_ioc_transfer tr = {
 		.tx_buf = (unsigned long)tx,
 		.rx_buf = (unsigned long)rx,
@@ -127,38 +129,50 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	};
 	//выполним инит spidev fd
 	spidev_init(fd);
-	//подготовим буферы
-	memset(tx, 0x0, sizeof(tx));
-	memset(rx, 0x0, sizeof(rx));
-	p = tx;
-	*(p++) = cmd; //номер команды
-	*(p++) = arg1; //arg1
-	*(p++) = arg2; //arg2
-	tx_crc = dallas_crc8((void*)tx, 3); //crc-8
-	*(p++) = tx_crc;
-	dump_buf_if_verb(tx);
-	//выполняем ioctl запрос
-	ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
-	dump_buf_if_verb(rx);
-	if(ret < 1)
-		pabort("can't send spi message");
-	if(ret != iobuf_len){
-		die_and_mess(-100, "expected ansver len != ret len: %zu vs %d",
-			iobuf_len, ret);
-	}
-	/* проверим то, что получили от микроконтроллера */
-	p = rx + 4;	//p указывает на начало ответа(+4 байта)
-	//проверим что rx[0] == tx_crc
-	if(*(p++) != tx_crc)
-		die_and_mess(-101, "Tx CRC error: 0x%x vs 0x%x", *(p - 1), tx_crc);
-	//проверим что rx[1] == номер команды
-	if(*p != cmd)
-		die_and_mess(-102, "Cmd num error!: 0x%x vs 0x%x", *p, cmd);
-	//проверим rx_crc(p указывает на байт с номером команды)
-	rx_crc = dallas_crc8((void*)(p++), 3);
-	//rx_crc вопторяется два раза!(p указыет на байт полезных данных)
-	if(rx_crc != p[2] || rx_crc != p[3]){
-		die_and_mess(-101, "Rx CRC error!: 0x%x vs 0x%x, 0x%x", rx_crc, p[2], p[3]);
+	//пытемся делать Retry в случае ошибки
+	for(a = 0; ; a++){
+		//подготовим буферы
+		memset(tx, 0x0, sizeof(tx));
+		memset(rx, 0x0, sizeof(rx));
+		p = tx;
+		*(p++) = cmd; //номер команды
+		*(p++) = arg1; //arg1
+		*(p++) = arg2; //arg2
+		tx_crc = dallas_crc8((void*)tx, 3); //crc-8
+		*(p++) = tx_crc;
+		dump_buf_if_verb(tx);
+		//выполняем ioctl запрос
+		ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
+		dump_buf_if_verb(rx);
+		if(ret < 1){
+			if(a < max_retry_count) continue; //try to retry
+			pabort("can't send spi message");
+		}
+		if(ret != iobuf_len){
+			if(a < max_retry_count) continue; //try to retry
+			die_and_mess(-100, "expected ansver len != ret len: %zu vs %d",
+				iobuf_len, ret);
+		}
+		/* проверим то, что получили от микроконтроллера */
+		p = rx + 4;	//p указывает на начало ответа(+4 байта)
+		//проверим что rx[0] == tx_crc
+		if(*(p++) != tx_crc){
+			if(a < max_retry_count) continue; //try to retry
+			die_and_mess(-101, "Tx CRC error: 0x%x vs 0x%x", *(p - 1), tx_crc);
+		}
+		//проверим что rx[1] == номер команды
+		if(*p != cmd){
+			if(a < max_retry_count) continue; //try to retry
+			die_and_mess(-102, "Cmd num error!: 0x%x vs 0x%x", *p, cmd);
+		}
+		//проверим rx_crc(p указывает на байт с номером команды)
+		rx_crc = dallas_crc8((void*)(p++), 3);
+		//rx_crc вопторяется два раза!(p указыет на байт полезных данных)
+		if(rx_crc != p[2] || rx_crc != p[3]){
+			if(a < max_retry_count) continue; //try to retry
+			die_and_mess(-101, "Rx CRC error!: 0x%x vs 0x%x, 0x%x", rx_crc, p[2], p[3]);
+		}
+		break;
 	}
 	//передаем полезные данные(2 байта) ответа от микроконтроллера
 	return p;
