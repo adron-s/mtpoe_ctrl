@@ -332,7 +332,7 @@ int main(int argc, char *argv[]){
 	}
 	//открываем файл на чтение(этого вполне достаточно для ioctl-я)
 	if((spidev_fd = open(dev_file, O_RDONLY)) < 0){
-		die_and_mess(-1, "Can't open device %s\n", dev_file);
+		die_and_mess(-1, "Can't open device %s", dev_file);
 	}
 	while(!need_exit){
 		//если мы здесь то по крайней мере action параметр передан. выполняем указанное в action действие.
