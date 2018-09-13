@@ -14,6 +14,7 @@
 void die(int code);
 extern char *err_descr; //подробное описание произошедшей ошибки
 extern int verbose; //быть более разговорчивым
+extern char err_mess[255];
 
 /*************************************************************************************
   вызывается при ошибке чтобы прекратить выполнение программы
@@ -24,6 +25,13 @@ static void pabort(char *ed){
 	err_descr = eed;
 	die(-100);
 }//-----------------------------------------------------------------------------------
+
+/* умереть и выдать осмысленное сообщение о причине смерти */
+#define die_and_mess(code, mess, args...){						\
+	snprintf(err_mess, sizeof(err_mess), mess, ##args);	\
+	err_descr = err_mess;																\
+	die(code);																					\
+}
 
 /*************************************************************************************
   считает 8 битную контрольную сумму по алгоритму CRC-8 Dallas/Maxim
@@ -108,7 +116,6 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	int ret;
 	uint8_t tx_crc;
 	uint8_t rx_crc;
-	char tmp[255];
 	uint8_t *p;
 	struct spi_ioc_transfer tr = {
 		.tx_buf = (unsigned long)tx,
@@ -136,23 +143,22 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	if(ret < 1)
 		pabort("can't send spi message");
 	if(ret != iobuf_len){
-		snprintf(tmp, sizeof(tmp), "expected ansver len != ret len: %zu vs %d",
+		die_and_mess(-100, "expected ansver len != ret len: %zu vs %d",
 			iobuf_len, ret);
-		pabort(tmp);
 	}
 	/* проверим то, что получили от микроконтроллера */
 	p = rx + 4;	//p указывает на начало ответа(+4 байта)
 	//проверим что rx[0] == tx_crc
 	if(*(p++) != tx_crc)
-		pabort("Tx CRC error!");
+		die_and_mess(-101, "Tx CRC error: 0x%x vs 0x%x", *(p - 1), tx_crc);
 	//проверим что rx[1] == номер команды
 	if(*p != cmd)
-		pabort("Cmd num error!");
+		die_and_mess(-102, "Cmd num error!: 0x%x vs 0x%x", *p, cmd);
 	//проверим rx_crc(p указывает на байт с номером команды)
 	rx_crc = dallas_crc8((void*)(p++), 3);
 	//rx_crc вопторяется два раза!(p указыет на байт полезных данных)
 	if(rx_crc != p[2] || rx_crc != p[3]){
-		pabort("Rx CRC error!");
+		die_and_mess(-101, "Rx CRC error!: 0x%x vs 0x%x, 0x%x", rx_crc, p[2], p[3]);
 	}
 	//передаем полезные данные(2 байта) ответа от микроконтроллера
 	return p;
