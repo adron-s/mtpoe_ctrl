@@ -262,3 +262,12 @@ spidev + драйвер ar79_spi я не буду! для sunxispi видно ч
 		Read Fuse bits: "50 00 00 00" := 0xE1
 		Read Fuse High bits: "58 08 00 00" := 0xC5
 		Read Extended Fuse Bits: "50 08 00 00" := 0xFF
+	для того чтобы понять какая размерность флеша(сколько страниц, размер страницы), а так же как задается
+	адресация можно смотреть вот сюда: https://github.com/SpenceKonde/ATTinyCore/blob/master/avr/avrdude.conf
+
+	итого для ATtiny 461a имеем следующее:
+		Flash size: 2K words (4K bytes), Page size: 32 words, No. of Pages: 64
+		Load Program Memory Page:
+			40 000xxxxx xxxbbbbb iiiiiiii - low word byte
+			48 000xxxxx xxxbbbbb iiiiiiii - high word byte
+		Write Program Memory Page - 4C xxxxxaaa bbbxxxxx xxxxxxxx
