@@ -65,6 +65,15 @@ int main(int argc, char *argv[]){
 		printf("sleep 1\n");
 	}
 	close(fd);
+	printf("#Write Fuse bits\n");
+	printf(CMD "\"AC A0 00 E1\"\n");
+	printf("#Write Fuse High bits\n");
+	printf(CMD "\"AC A8 00 C5\"\n");
+	printf("#Write Extended Fuse Bits\n");
+	printf(CMD "\"AC A4 00 FF\"\n");
+	printf("#Write Lock bits\n");
+	printf(CMD "\"AC E0 00 FC\"\n");
+	printf("sleep 1\n");
 	printf("echo 1 > /sys/class/gpio/gpio14/value\n\n");
 	return 0;
 }
