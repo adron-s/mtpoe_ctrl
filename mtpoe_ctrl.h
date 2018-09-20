@@ -27,8 +27,9 @@ char poe_uci_config_key[32] = MTIK_POE_UCI_CONFIG_KEY;
 int period = 0; //период повторения главного цикла
 int verbose = 0; //быть более разговорчивым
 int port = -1; //номер порта. используется для set_poe
-int val = -1; //значение. напрнимер 0, 1 или 2 для set_poe
+int val = -1; //значение. например 0, 1 или 2 для set_poe
 int version = 0; //нужно показать версию и выйти
+char raw_hex_val[64] = "00 00 00 00"; //сырые данные в hex формате(в виде строки)
 
 //структура с описанием нашей опции
 struct my_option{
@@ -59,6 +60,7 @@ enum {
   opt_port,
   opt_val,
   opt_version,
+  opt_raw_hex_val,
   opt_MAX
 };
 
@@ -75,6 +77,7 @@ const struct my_option my_options[] = {
   define_int_opt(port, 0, 3),
   define_int_opt(val, 0, 0xFFFF),
   define_flag_opt(version),
+  define_str_opt(raw_hex_val),
   define_empty_opt()
 };
 

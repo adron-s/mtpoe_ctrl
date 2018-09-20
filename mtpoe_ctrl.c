@@ -267,7 +267,7 @@ static void do_action_load_poe_from_uci(void){
 	получает все данные о состоянии poe и выводит их в виде json
 */
 static void do_action_info(){
-	single = 0; //команд выводящих данныхз будет много
+	single = 0; //команд выводящих данные будет много
 	{ printf("{\n"); scop = 1; }
 	do_action_get_fw_ver();
 	do_action_get_voltage();
@@ -275,6 +275,84 @@ static void do_action_info(){
 	single = -100; //последняя выводимая переменная. запятая не нужна.
 	do_action_get_poe();
 	printf("}\n");
+}//-----------------------------------------------------------------------------------
+
+
+/*************************************************************************************
+	выполняет парсинг hex строки вида "0D 23 4C 56" возвращая ответ в виде массива байт
+	не забывай освобождать память массива с результатом !!!
+*/
+static uint8_t *parse_hex_str(char *str, size_t *ret_len){
+	char byte[3]; //для символов байта
+	int a, nw;
+	uint8_t *res = NULL;
+	uint8_t *p = NULL;
+	size_t len = 0;
+	*ret_len = 0;
+	/* делаем два прохода. в первом считаем размер для массива результата
+		 а во втором парсим каждый найденный байт(его символы) */
+	for(nw = 0; nw < 2; nw++){
+		memset(byte, '\0', sizeof(byte));
+		if(nw){ //если это второй проход цыкла
+			if(len == 0)
+				return NULL;
+			res = malloc(len);
+			if(!res)
+				return NULL;
+			p = res;
+		}
+		for(a = 0; a < strlen(str) + 1; a++){
+			if((str[a] == ' ') || (str[a] == '\0')){
+				if(byte[0] == '\0')
+					continue;
+				goto recogn;
+			}
+			if(byte[0] == '\0'){
+				byte[0] = str[a];
+			}else{
+				byte[1] = str[a];
+				goto recogn;
+			}
+			continue;
+	recogn:
+			if(nw)
+				*(p++) = strtol(byte, NULL, 16);
+			else
+				len++;
+			memset(byte, '\0', sizeof(byte));
+		}
+	}
+	*ret_len = len;
+	return res;
+}//-----------------------------------------------------------------------------------
+
+/*************************************************************************************
+	отправляет "сырую" команду состоящую из байтов заданных в raw_hex_val
+*/
+static void do_action_raw_send(){
+	int a;
+	check_for_needed_params("raw_hex_val");
+	size_t tx_len = 0;
+	size_t rx_len = 0;
+	uint8_t *tx_data = parse_hex_str(raw_hex_val, &tx_len);
+	uint8_t *rx_data = spidev_raw_query(spidev_fd, tx_data, tx_len);
+	if(rx_data > 0)
+		rx_len = tx_len;
+	scobs({
+		printf("  %s: %s,\n", "action",  "\"raw_send\"");
+		printf("  %s: \"", "tx");
+		for(a = 0; a < tx_len; a++)
+			printf("%s0x%02X", a > 0 ? " " : "", tx_data[a]);
+		printf("\",\n");
+		printf("  %s: \"", "rx");
+		for(a = 0; a < rx_len; a++)
+			printf("%s0x%02X", a > 0 ? " " : "", rx_data[a]);
+		printf("\"\n");
+	});
+	if(tx_data)
+		free(tx_data);
+	if(rx_data)
+		free(rx_data);
 }//-----------------------------------------------------------------------------------
 
 //список известных нам значенией(X) для --action=X
@@ -287,6 +365,7 @@ static const struct my_action_opt my_actions[] = {
 	define_my_action(set_poe), //устанавливает состояние X для указанного PoE порта
 	define_my_action(load_poe_from_uci), //посредством UCI загружает и применяет состояния к PoE портам
 	define_my_action(get_version), //возвращает версию этой утилиты
+	define_my_action(raw_send), //отправка "сырой" команды из байтов заданных в raw_hex_val
 	{ NULL, NULL }
 };
 

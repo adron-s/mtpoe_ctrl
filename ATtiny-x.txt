@@ -221,3 +221,44 @@ https://groups.google.com/forum/#!topic/linux-sunxi/61CJ4tFaGMQ
 Это конечно занимает шину и все такое но данных у меня передается мало и из за этого искать как пропатчить
 spidev + драйвер ar79_spi я не буду! для sunxispi видно что есть спец регистр который позволяет аппаратно
 реазиловать эту задержку! хз есть ли такой же для ar79_spi!
+
+Перевод ATtiny в режим перепрошивки:
+	согласно датащиту: http://ww1.microchip.com/downloads/en/DeviceDoc/doc8197.pdf
+	и вот этому: https://habr.com/post/152052/
+	!!!!!!!!!!!!!!!!
+	данные по spi шине для других устройств в это время передаваться не должны!
+	так что лучше загрузиться через netboot и не активировать gpio расширитель лампочек !
+	!!!!!!!!!!!!!!!!
+	echo 0 > /sys/class/gpio/gpio14/value - подаем низкий уровень на RESET pin ATtiny.
+	mtpoe_ctrl --action=raw_send --raw_hex_val="AC 53 00 00" - Programming Enable
+	{
+	  action: "raw_send",
+	  tx: "0xAC 0x53 0x00 0x00",
+	  rx: "0x00 0x00 0x53 0x00" - 0x53 это ответ!
+	}
+	mtpoe_ctrl --action=raw_send --raw_hex_val="30 00 00-02 00" - три раза. получаем ID чипа.
+	}
+  	rx: "0x00 0x30 0x00 0x1E"
+  	rx: "0x00 0x30 0x00 0x92"
+  	rx: "0x00 0x30 0x00 0x08"
+	}
+	то есть ID нашего чипа: 0x1E 0x92 0x08 что соответствует ATtiny461
+	Значит чип в режиме перепрошивки!
+	mtpoe_ctrl --action=raw_send --raw_hex_val="58 00 00 00"
+	{
+  	action: "raw_send",
+	  tx: "0x58 0x00 0x00 0x00",
+	  rx: "0x00 0x58 0x00 0xFC"
+	}
+	то есть Lock bits := 0xFC
+	читаем тут: https://ph0en1x.net/100-what-is-fuse-and-lock-bits-in-avr-microcontroller-howto.html#what-is-fuse-lock-bits-avr
+	11111100 - LB1(запись), и LB2(чтение) биты установлены( == 0 !) так что перезапись внутренней eeprom и flash памяти запрещена!
+	так же запрещено ее чтение!
+	Вот почему команды "20 00 00 00" и "28 00 00 00" возвращают 0xFF!
+	Выход только один - отдать команду: Chip Erase: "AC 80 00 00" которая сбросит защитные биты и сотрет всю память!
+	и затем шыть чип заново! Да и после прошивки не плохо было бы вернуть на место значения Lock и Fuse bits.
+	Сейчас они такие:
+		Lock bits read: "58 00 00 00" := 0xFC
+		Read Fuse bits: "50 00 00 00" := 0xE1
+		Read Fuse High bits: "58 08 00 00" := 0xC5
+		Read Extended Fuse Bits: "50 08 00 00" := 0xFF

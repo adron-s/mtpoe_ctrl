@@ -12,5 +12,6 @@
 #define POE_CMD_PORT_STATE_BASE 0x59 /* 0x59 .. 0x5C */
 
 uint8_t *spidev_query(int, uint8_t, uint8_t, uint8_t);
+uint8_t *spidev_raw_query(int, uint8_t *, size_t);
 
 #endif /* _MK_COM */

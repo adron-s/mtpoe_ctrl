@@ -99,11 +99,11 @@ static void spidev_init(int fd){
 }//-----------------------------------------------------------------------------------
 
 /* печатает tx или rx буфер если включен режим verbose */
-#define dump_buf_if_verb(bs){					 \
+#define dump_buf_if_verb(bs, len){		 \
 	if(verbose){												 \
 		int a;														 \
 		fprintf(stderr, "%s: ", #bs);			 \
-		for(a = 0; a < iobuf_len; a++)		 \
+		for(a = 0; a < len; a++)		 			 \
 			fprintf(stderr, "%.2X ", bs[a]); \
 		fprintf(stderr, "\n");						 \
 	}																		 \
@@ -129,7 +129,7 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	};
 	//выполним инит spidev fd
 	spidev_init(fd);
-	//пытемся делать Retry в случае ошибки
+	//пытамся делать Retry в случае ошибки
 	for(a = 0; ; a++){
 		//подготовим буферы
 		memset(tx, 0x0, sizeof(tx));
@@ -140,10 +140,10 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 		*(p++) = arg2; //arg2
 		tx_crc = dallas_crc8((void*)tx, 3); //crc-8
 		*(p++) = tx_crc;
-		dump_buf_if_verb(tx);
+		dump_buf_if_verb(tx, iobuf_len);
 		//выполняем ioctl запрос
 		ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
-		dump_buf_if_verb(rx);
+		dump_buf_if_verb(rx, iobuf_len);
 		if(ret < 1){
 			if(a < max_retry_count) continue; //try to retry
 			pabort("can't send spi message");
@@ -176,4 +176,37 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	}
 	//передаем полезные данные(2 байта) ответа от микроконтроллера
 	return p;
+}//-----------------------------------------------------------------------------------
+
+/*************************************************************************************
+  выполняет ioctl запрос к spidev драйверу чтобы отправить $len @tx_raw_data байт.
+  используется для отладки. не забывай освобождать память буфера результата.
+*/
+uint8_t *spidev_raw_query(int fd, uint8_t *tx_raw_data, size_t len){
+	int ret;
+	uint8_t *rx_ansv = malloc(len);
+	struct spi_ioc_transfer tr = {
+		.tx_buf = (unsigned long)tx_raw_data,
+		.rx_buf = (unsigned long)rx_ansv,
+		.len = len,
+		.delay_usecs = 100, //задержка с переключением CS после окончания запроса
+		.speed_hz = speed,
+		.bits_per_word = bits,
+	};
+	if(!rx_ansv){
+		return NULL;
+	}
+	dump_buf_if_verb(tx_raw_data, len);
+	//выполним инит spidev fd
+	spidev_init(fd);
+	//подготовим буфер для rx
+	memset(rx_ansv, 0x0, len);
+	//выполняем ioctl запрос
+	ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
+	dump_buf_if_verb(rx_ansv, len);
+	if(ret < 1){
+		free(rx_ansv);
+		return NULL;
+	}
+	return rx_ansv; //не забывай освобождать память !
 }//-----------------------------------------------------------------------------------
