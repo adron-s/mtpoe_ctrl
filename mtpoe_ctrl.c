@@ -446,6 +446,8 @@ char *try_to_detect_poe_proto(int fallback_val){
 		if(len > 0){
 			int a;
 			buf[len] = '\0';
+			if(len > 0 && buf[len - 1] == '\n')
+				buf[len - 1] = '\0';
 			for(a = 0; a < sizeof(poe_boards) / sizeof(poe_boards[0]); a++){
 				if((strlen(buf) == strlen(poe_boards[a].name)) && !strcmp(buf, poe_boards[a].name)){
 					ver = poe_boards[a].ver;
