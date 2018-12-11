@@ -1,4 +1,4 @@
-VERSION := 1.10
+VERSION := 1.11
 
 ifdef CROSS_COMPILE
 	CC := $(CROSS_COMPILE)-gcc

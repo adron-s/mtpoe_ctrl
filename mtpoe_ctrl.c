@@ -471,7 +471,11 @@ int main(int argc, char *argv[]){
 	//парсим переданные нам опции
 	parse_options(argc, argv);
 	if(!poe_proto) //если протокол poe не был задан
-		add_default_if_not_set(poe_proto, try_to_detect_poe_proto(2));
+		add_default_if_not_set(poe_proto, try_to_detect_poe_proto(0));
+	if(!poe_proto){ //если версию пое так определить и не удалось
+		die_and_mess(100, "Unsupported PoE device !");
+		//то лучше дальше не продолжать. вдруг устройство вообще не имеет poe!
+	}
 	if(version) //это тоже самое что и --action="get_version"
 		add_default_if_not_set(action, "get_version");
 	//проверим что был передан параметр action. и если он не был передан то:
