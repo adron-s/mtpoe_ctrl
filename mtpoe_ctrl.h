@@ -7,6 +7,8 @@
 #define MTIK_POE_UCI_CONFIG_KEY "mtik_poe"
 //сколько всего PoE портов
 #define POE_PORTS_N 4
+//где находится файл с board_name
+#define BOARD_NAME_FILE "/tmp/sysinfo/board_name"
 
 int need_exit = 0; //еще не пора выходить
 int spidev_fd = -1; //дескриптор spidev файла
@@ -29,6 +31,7 @@ int verbose = 0; //быть более разговорчивым
 int port = -1; //номер порта. используется для set_poe
 int val = -1; //значение. например 0, 1 или 2 для set_poe
 int version = 0; //нужно показать версию и выйти
+int poe_proto = 0; //версия протокола пое(v2, v3). 0 - auto.
 char raw_hex_val[64] = "00 00 00 00"; //сырые данные в hex формате(в виде строки)
 
 //структура с описанием нашей опции
@@ -61,6 +64,7 @@ enum {
   opt_val,
   opt_version,
   opt_raw_hex_val,
+  opt_poe_proto,
   opt_MAX
 };
 
@@ -78,6 +82,7 @@ const struct my_option my_options[] = {
   define_int_opt(val, 0, 0xFFFF),
   define_flag_opt(version),
   define_str_opt(raw_hex_val),
+  define_int_opt(poe_proto, 0, 0xFF),
   define_empty_opt()
 };
 

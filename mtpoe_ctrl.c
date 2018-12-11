@@ -100,7 +100,12 @@ static void do_action_get_fw_ver(void){
 */
 static void do_action_get_voltage(void){
 	do_sq(POE_CMD_INP_VOLT, {
-		float v = (x * 35.7 / 1024);
+		float v = 0;
+		if(poe_proto == 2){
+			v = (x * 35.7 / 1024);
+		}else if(poe_proto == 3){
+			v = x / 100.;
+		}
 		printf("  %s: %.2f%s\n", "voltage", v, need_coma());
 	});
 }//-----------------------------------------------------------------------------------
@@ -110,7 +115,21 @@ static void do_action_get_voltage(void){
 */
 static void do_action_get_temperature(void){
 	do_sq(POE_CMD_TEMPERAT, {
-		int c = x - 0x113; //зависимость линейная. 0C это 0x113
+		int c = 0;
+		if(poe_proto == 2){
+			c = x - 0x113; //зависимость линейная. 0C это 0x113
+		}else if(poe_proto == 3){
+			/* 12 значений(блок) => 5 делений температуры ! */
+			int n = x / 12; //номер блока
+			int o = x - n * 12; //остаток - хвост после блока
+			c = n * 5; //первое из значений в блоке
+			c -= 253; //переходим на градусы Цельсия
+			/* прибавляем с учетом длины хвоста блока */
+			if(o > 9) c += 4; else
+			if(o > 6) c += 3; else
+			if(o > 4) c += 2; else
+			if(o > 2) c += 1;
+		}
 		printf("  %s: %d%s\n", "temperature", c, need_coma());
 	});
 }//-----------------------------------------------------------------------------------
@@ -124,7 +143,11 @@ static uint8_t *get_poe_ports_state(void){
 	uint8_t *ansv = spidev_query(spidev_fd, POE_CMD_STATE, 0, 0);
 	uint32_t x = ansv[0] << 8 | ansv[1];
 	for(a = 0; a < POE_PORTS_N; a++){
-		nps[a] = x & 0xF;
+		if(poe_proto == 2){
+			nps[a] = x & 0xF;
+		} else if(poe_proto == 3){
+			nps[POE_PORTS_N - a - 1] = x & 0xF;
+		}
 		x >>= 4;
 	}
 	return nps;
@@ -391,6 +414,50 @@ static void do_action(){
 	my_action_react(my_action->cb());
 }//-----------------------------------------------------------------------------------
 
+#define POE_BOARD_NAME_LEN 32
+struct poe_board {
+	char name[POE_BOARD_NAME_LEN];
+	int ver;
+};
+
+/*************************************************************************************
+	все изместные нам PoE устройства */
+struct poe_board poe_boards[ ] = {
+	{ /* RouterBOARD 750P r2, RouterBOARD 750UP r2*/
+		.name = "rb-750p-pbr2",
+		.ver = 2
+	}, { /* RouterBOARD 960PGS */
+		.name = "rb-960-pgs",
+		.ver = 3
+	}
+};//----------------------------------------------------------------------------------
+
+/*************************************************************************************
+	пытается по модели устройства определить версию poe протокола. */
+char *try_to_detect_poe_proto(int fallback_val){
+	static char res[8];
+	char buf[POE_BOARD_NAME_LEN];
+	int ver = fallback_val;
+	int fd = -1;
+	size_t len;
+	fd = open(BOARD_NAME_FILE, O_RDONLY);
+	if(fd > 0){
+		len = read(fd, buf, sizeof(buf) - 1);
+		if(len > 0){
+			int a;
+			buf[len] = '\0';
+			for(a = 0; a < sizeof(poe_boards) / sizeof(poe_boards[0]); a++){
+				if((strlen(buf) == strlen(poe_boards[a].name)) && !strcmp(buf, poe_boards[a].name)){
+					ver = poe_boards[a].ver;
+				}
+			}
+		}
+		close(fd);
+	}
+	snprintf(res, sizeof(res), "%d", ver);
+	return res;
+}//-----------------------------------------------------------------------------------
+
 /*************************************************************************************
 	main
 */
@@ -401,6 +468,8 @@ int main(int argc, char *argv[]){
 	memset(passed_options, 0x0, sizeof(passed_options));
 	//парсим переданные нам опции
 	parse_options(argc, argv);
+	if(!poe_proto) //если протокол poe не был задан
+		add_default_if_not_set(poe_proto, try_to_detect_poe_proto(2));
 	if(version) //это тоже самое что и --action="get_version"
 		add_default_if_not_set(action, "get_version");
 	//проверим что был передан параметр action. и если он не был передан то:

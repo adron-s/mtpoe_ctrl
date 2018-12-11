@@ -15,6 +15,7 @@ void die(int code);
 extern char *err_descr; //подробное описание произошедшей ошибки
 extern int verbose; //быть более разговорчивым
 extern char err_mess[255];
+extern int poe_proto;
 
 /*************************************************************************************
   вызывается при ошибке чтобы прекратить выполнение программы
@@ -155,6 +156,8 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 		}
 		/* проверим то, что получили от микроконтроллера */
 		p = rx + 4;	//p указывает на начало ответа(+4 байта)
+		if(poe_proto == 3)
+			tx_crc = 0xFF;
 		//проверим что rx[0] == tx_crc
 		if(*(p++) != tx_crc){
 			if(a < max_retry_count) continue; //try to retry
