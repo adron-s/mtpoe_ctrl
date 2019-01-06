@@ -116,8 +116,9 @@ static void do_action_get_voltage(void){
 static void do_action_get_temperature(void){
 	do_sq(POE_CMD_TEMPERAT, {
 		int c = 0;
+		//в обоих случаях зависимость линейная
 		if(poe_proto == 2){
-			c = x - 0x113; //зависимость линейная. 0C это 0x113
+			c = x - 273; //переходим на градусы Цельсия из Кельвинов
 		}else if(poe_proto == 3){
 			/* 12 значений(блок) => 5 делений температуры ! */
 			int n = x / 12; //номер блока
