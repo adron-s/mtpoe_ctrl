@@ -1,4 +1,4 @@
-VERSION := 1.12
+VERSION := 1.13
 
 ifdef CROSS_COMPILE
 	CC := $(CROSS_COMPILE)-gcc
@@ -48,9 +48,9 @@ clean:
 
 #для отладки
 mips:
-	$(eval LEDE_SOURCE := /home/prog/openwrt/lede-all/new-lede-rb941/source)
-	$(eval TARGET_DIR := $(LEDE_SOURCE)/staging_dir/target-mips_24kc_musl-1.1.16)
-	@STAGING_DIR=$(LEDE_SOURCE)/staging_dir/toolchain-mips_24kc_gcc-5.4.0_musl-1.1.16 \
+	$(eval OPENWRT_SOURCE := /home/prog/openwrt/2020-openwrt/openwrt-18.06.8)
+	$(eval TARGET_DIR := $(OPENWRT_SOURCE)/staging_dir/target-mips_24kc_musl)
+	@STAGING_DIR=$(OPENWRT_SOURCE)/staging_dir/toolchain-mips_24kc_gcc-7.3.0_musl \
 	CROSS_COMPILE=$$STAGING_DIR/bin/mips-openwrt-linux \
 	EXTRA_CFLAGS="-I${TARGET_DIR}/usr/include -L${TARGET_DIR}/usr/lib" \
 	make all
