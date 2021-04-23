@@ -53,9 +53,11 @@ static unsigned char dallas_crc8(const unsigned char *data, const unsigned int s
 	return crc;
 }//-----------------------------------------------------------------------------------
 
+#define INTERBYTE_DELAY_USEC 150 /* interbyte spacing between the individual bytes in microseconds */
+
 static uint32_t mode = SPI_MODE_0; //режим работы spi шины(их всего 4-ре)
 static uint8_t bits = 8; //8 bites per word
-static uint32_t speed = 8000; //частота. т.к. контроллеру нужно время на подумать то частота 8kHz
+static uint32_t speed = 2000000; //2Mhz - частота передачи сигнала по шине
 
 static uint8_t tx[10];
 #define iobuf_len (sizeof(tx) / sizeof(tx[0]))
@@ -115,7 +117,7 @@ static void spidev_init(int fd){
 */
 uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	int ret;
-	const int max_retry_count = 2; //сколько retry пытаться делать
+	const int max_retry_count = 10; //сколько retry пытаться делать
 	uint8_t tx_crc;
 	uint8_t rx_crc;
 	uint8_t *p;
@@ -124,7 +126,8 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 		.tx_buf = (unsigned long)tx,
 		.rx_buf = (unsigned long)rx,
 		.len = iobuf_len,
-		.delay_usecs = 100, //задержка с переключением CS после окончания запроса
+		.delay_usecs = INTERBYTE_DELAY_USEC, //задержка с переключением CS после окончания запроса
+		.word_delay_usecs = INTERBYTE_DELAY_USEC, //задержка между передачей слов(8 бит за раз, потом ждем, чтобы микроконтроллер успел это принять)
 		.speed_hz = speed,
 		.bits_per_word = bits,
 	};
@@ -132,6 +135,8 @@ uint8_t *spidev_query(int fd, uint8_t cmd, uint8_t arg1, uint8_t arg2){
 	spidev_init(fd);
 	//пытамся делать Retry в случае ошибки
 	for(a = 0; ; a++){
+		if(a > 0) //если это не первая попытка
+			usleep(INTERBYTE_DELAY_USEC * a);
 		//подготовим буферы
 		memset(tx, 0x0, sizeof(tx));
 		memset(rx, 0x0, sizeof(rx));
@@ -192,7 +197,8 @@ uint8_t *spidev_raw_query(int fd, uint8_t *tx_raw_data, size_t len){
 		.tx_buf = (unsigned long)tx_raw_data,
 		.rx_buf = (unsigned long)rx_ansv,
 		.len = len,
-		.delay_usecs = 100, //задержка с переключением CS после окончания запроса
+		.delay_usecs = INTERBYTE_DELAY_USEC, //задержка с переключением CS после окончания запроса
+		.word_delay_usecs = INTERBYTE_DELAY_USEC, //задержка между передачей слов(8 бит за раз, потом ждем, чтобы микроконтроллер успел это принять)
 		.speed_hz = speed,
 		.bits_per_word = bits,
 	};
