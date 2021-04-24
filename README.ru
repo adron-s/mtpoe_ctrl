@@ -57,3 +57,14 @@ static void __init rb750r2_setup(void)
 	ath79_register_spi(&rb750r2spi_data, rb750r2spi_info, ARRAY_SIZE(rb750r2spi_info));
 	...
 }
+
+или если вы используете DTS:
+&spi {
+	spidev@2 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "linux,spidev";
+		reg = <2>;
+		spi-max-frequency = <2200000>;
+	};
+};

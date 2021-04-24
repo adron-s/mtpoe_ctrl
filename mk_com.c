@@ -56,8 +56,8 @@ static unsigned char dallas_crc8(const unsigned char *data, const unsigned int s
 #define INTERBYTE_DELAY_USEC 150 /* interbyte spacing between the individual bytes in microseconds */
 
 static uint32_t mode = SPI_MODE_0; //режим работы spi шины(их всего 4-ре)
-static uint8_t bits = 8; //8 bites per word
-static uint32_t speed = 2000000; //2Mhz - частота передачи сигнала по шине
+static uint8_t bits = 8; //8 bits per word
+static uint32_t speed = 2200000; //2.2Mhz - частота передачи сигнала по шине
 
 static uint8_t tx[10];
 #define iobuf_len (sizeof(tx) / sizeof(tx[0]))
