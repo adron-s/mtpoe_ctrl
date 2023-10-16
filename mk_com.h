@@ -9,7 +9,8 @@
 #define POE_CMD_STATE 0x45 /* получение статуса всех POE портов(off, force-on, auto-on) */
 /* запрос статуса(есть ли потребление, КЗ) POE для указанного порта.
 	 так же возвращает ток потребления в mA */
-#define POE_CMD_PORT_STATE_BASE 0x59 /* 0x59 .. 0x5C */
+#define POE_CMD_PORT_STATE_BASE 0x50 /* 0x50 .. 0x5F */
+#define POE_CMD_PORTS_MAX 16 /* Maximum number of handled ports.*/
 
 uint8_t *spidev_query(int, uint8_t, uint8_t, uint8_t);
 uint8_t *spidev_raw_query(int, uint8_t *, size_t);

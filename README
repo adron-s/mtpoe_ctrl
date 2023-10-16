@@ -68,3 +68,14 @@ or if you use DTS:
 		spi-max-frequency = <2200000>;
 	};
 };
+
+Note for RB500UPr+S+IN:
+	Refer to https://forum.openwrt.org/t/mikrotik-rb750-r2-series-poe/7032/68 for necessary DT patch and
+	ensure the PoE is enabled by setting the gpio40.
+	The get_poe command does not return the ports configuration (0x45), only the status.
+
+Build:
+	1. Copy openwrt/package/utils/mtpoe_ctrl/Makefile into <openwrt build tree>/package/utils/mtpoe_ctrl/Makefile
+	2. In <openwrt build tree> run 'make menuconfig' and select this new package to build
+	3a. Type 'make' to rebuild the openwrt OR
+	3b. Type 'make package/utils/mtpoe_ctrl/{clean,compile}' to build this package only
