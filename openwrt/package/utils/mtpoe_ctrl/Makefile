@@ -5,13 +5,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mtpoe_ctrl
-PKG_SOURCE_VERSION:=a392b923ddc1efb5ef16ddc28db058929b6bb80f
-PKG_MIRROR_HASH:=fedc3f0fa11d7f7b21e33f28d88cd607ad951877aab55d964b1653d45f04b5d7
+PKG_SOURCE_VERSION:=b864c4b265c23c15729f00a6d8833af60cfa8d86
+PKG_MIRROR_HASH:=79516b8070decb2558ee6425188de6b8272cb8d073b88dd43aa99224c6e72a9d
 PKG_VERSION:=1.15
 PKG_RELEASE:=19
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=https://github.com/adron-s/mtpoe_ctrl.git
+PKG_SOURCE_URL:=https://github.com/prudy/mtpoe_ctrl.git
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 
@@ -24,12 +24,12 @@ define Package/mtpoe_ctrl
   SECTION:=utils
   CATEGORY:=Utilities
   DEPENDS:=+libuci +kmod-spi-dev
-  TITLE:=Management utility for Mikrotiks PoE V2/V3
-  URL:=https://github.com/adron-s/mtpoe_ctrl.git
+  TITLE:=Management utility for Mikrotiks PoE V2/V3/V4
+  URL:=https://github.com/prudy/mtpoe_ctrl.git
 endef
 
 define Package/mtpoe_ctrl/description
-	Management utility for Mikrotiks PoE V2/V3
+	Management utility for Mikrotiks PoE V2/V3/V4
 endef
 
 define Package/mtpoe_ctrl/install
