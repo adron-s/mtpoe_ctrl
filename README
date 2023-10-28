@@ -69,9 +69,10 @@ or if you use DTS:
 	};
 };
 
-Note for RB500UPr+S+IN:
-	Refer to https://forum.openwrt.org/t/mikrotik-rb750-r2-series-poe/7032/68 for necessary DT patch and
-	ensure the PoE is enabled by setting the gpio40.
+RB500UPr+S+IN:
+	The board name expected is "mikrotik,rb5009upr".
+	It is expected the appropriate spi device is defined in DT and the PoE is enabled. This is already ensured with
+	patches for this board (also refer to https://forum.openwrt.org/t/mikrotik-rb750-r2-series-poe/7032/68).
 	The get_poe command does not return the ports configuration (0x45), only the status.
 
 Build:
