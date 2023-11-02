@@ -36,7 +36,9 @@ define Package/mtpoe_ctrl/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/bins/mtpoe_ctrl $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/openwrt/etc/init.d/mtpoe_ctrl $(1)/etc/init.d
+	$(INSTALL_BIN) ./files/99-mtpoe_ctrl $(1)/etc/init.d/
+	$(INSTALL_DIR) $(1)/etc/uci-defaults
+	$(INSTALL_BIN) ./files/mtpoe_ctrl.defaults $(1)/etc/uci-defaults/
 endef
 
 $(eval $(call BuildPackage,mtpoe_ctrl))

@@ -6,7 +6,7 @@
 //файл для общения с spidev модулем
 #define DEFAULT_DEV_FILE "/dev/spidev0.2"
 //ключ субконфига uci->network в котором находятся настройки PoE
-#define MTIK_POE_UCI_CONFIG_KEY "mtik_poe"
+#define MTIK_POE_UCI_CONFIG_KEY "@poe[0]"
 //сколько всего PoE портов
 #define POE_PORTS_N ((board < BOARDS_NUM) ? poe_boards[board].ports_num : 0)
 //где находится файл с board_name
