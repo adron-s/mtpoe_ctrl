@@ -37,7 +37,7 @@ static void pabort(char *ed){
 /*************************************************************************************
   считает 8 битную контрольную сумму по алгоритму CRC-8 Dallas/Maxim
 */
-/*static*/ unsigned char dallas_crc8(const unsigned char *data, const unsigned int size){
+static unsigned char dallas_crc8(const unsigned char *data, const unsigned int size){
 	unsigned char crc = 0;
 	unsigned int i;
 	for(i = 0; i < size; ++i){
