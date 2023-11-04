@@ -1,12 +1,14 @@
 #ifndef _MTPOE_CTRL
 #define _MTPOE_CTRL
 
+#include "mk_boards.h"
+
 //файл для общения с spidev модулем
 #define DEFAULT_DEV_FILE "/dev/spidev0.2"
 //ключ субконфига uci->network в котором находятся настройки PoE
-#define MTIK_POE_UCI_CONFIG_KEY "mtik_poe"
+#define MTIK_POE_UCI_CONFIG_KEY "@poe[0]"
 //сколько всего PoE портов
-#define POE_PORTS_N 4
+#define POE_PORTS_N ((board < BOARDS_NUM) ? poe_boards[board].ports_num : 0)
 //где находится файл с board_name
 #define BOARD_NAME_FILE "/tmp/sysinfo/board_name"
 
@@ -31,7 +33,8 @@ int verbose = 0; //быть более разговорчивым
 int port = -1; //номер порта. используется для set_poe
 int val = -1; //значение. например 0, 1 или 2 для set_poe
 int version = 0; //нужно показать версию и выйти
-int poe_proto = 0; //версия протокола пое(v2, v3). 0 - auto.
+int poe_proto = 0; //версия протокола пое(v2, v3, v4). 0 - auto.
+int board = 0; //board index from the list, 0 - auto
 char raw_hex_val[64] = "00 00 00 00"; //сырые данные в hex формате(в виде строки)
 
 //структура с описанием нашей опции
@@ -65,6 +68,7 @@ enum {
   opt_version,
   opt_raw_hex_val,
   opt_poe_proto,
+  opt_board,
   opt_MAX
 };
 
@@ -78,11 +82,12 @@ const struct my_option my_options[] = {
   define_str_opt(poe_uci_config_key),
   define_int_opt(period, 0, 3600),
   define_flag_opt(verbose),
-  define_int_opt(port, 0, 3),
+  define_int_opt(port, 0, POE_CMD_PORTS_MAX),
   define_int_opt(val, 0, 0xFFFF),
   define_flag_opt(version),
   define_str_opt(raw_hex_val),
   define_int_opt(poe_proto, 0, 0xFF),
+  define_int_opt(board, 0, BOARDS_NUM),
   define_empty_opt()
 };
 

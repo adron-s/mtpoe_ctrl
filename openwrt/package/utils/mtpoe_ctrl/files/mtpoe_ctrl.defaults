@@ -1,0 +1,27 @@
+#!/bin/sh
+
+uci -q get network.@poe[0] || {
+	num=0
+	board=$(cat /tmp/sysinfo/board_name)
+	case "$board" in
+	rb-750p-pbr2|\
+	mikrotik,routerboard-960pgs)
+		num=4
+		;;
+	mikrotik,rb5009upr)
+		num=8
+		;;
+	*)
+		return 0
+		;;
+	esac
+	if [ "$num" -gt 0 ]; then
+		uci add network poe
+		n=0
+		while [ "$n" -lt "$num" ]; do
+			uci set network.@poe[0].port$n='0'
+			n=$((n + 1))
+		done
+		uci commit network.@poe[0]
+	fi
+}

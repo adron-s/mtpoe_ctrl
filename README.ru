@@ -13,10 +13,10 @@
 	mtpoe_ctrl --action=set_poe --port=1 --val=2 #auto-on PoE для порта ether3
 	mtpoe_ctrl --action=set_poe --port=2 --val=1 #force-on PoE для порта ether4
 	mtpoe_ctrl --action=set_poe --port=3 --val=0 #выключить PoE для порта ether5
-	mtpoe_ctrl --action=load_poe_from_uci #загрузить PoE настройки портов из uci->network->mtik_poe
+	mtpoe_ctrl --action=load_poe_from_uci #загрузить PoE настройки портов из uci->network->poe
 
-В /etc/config/network должна присутствовать секция mtik_poe:
-config mtik_poe
+В /etc/config/network должна присутствовать секция poe:
+config poe
 	option port0 '1'
 	option port1 '0'
 	option port2 '1'

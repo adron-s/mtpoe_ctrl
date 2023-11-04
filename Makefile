@@ -20,7 +20,7 @@ ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 
 EXTRA_CFLAGS += -DVERSION='"$(VERSION)"'
 
-mtpoe_ctrl-h := mtpoe_ctrl.h mk_com.h params.h signals.h
+mtpoe_ctrl-h := mtpoe_ctrl.h mk_boards.h mk_com.h params.h signals.h
 mtpoe_ctrl-objs-c := mk_com.c
 mtpoe_ctrl-objs := $(mtpoe_ctrl-objs-c:%.c=objs/%.o)
 mtpoe_ctrl-bins-c := mtpoe_ctrl.c

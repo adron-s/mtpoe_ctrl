@@ -11,7 +11,6 @@
 #include <linux/types.h>
 #include <signal.h>
 #include "signals.h"
-#include "mk_com.h"
 #include "mtpoe_ctrl.h"
 
 char err_mess[255];
@@ -71,10 +70,11 @@ static void parse_options(int argc, char *argv[]){
 	while((pc = getopt_long_only(argc, argv, "", long_options, NULL)) != -1){
 		//загружаем значение из optarg в выделенную для этой опции переменную
 		opt_set_val(pc, optarg); //этот макрос так же проверяет что pc не выходит за границы opt_MAX
-		//printf("%d\n", pc);
 		passed_options[pc] = 1; //ставим флаг что эта опция была передана
 	}
 }//-----------------------------------------------------------------------------------
+
+
 
 /*************************************************************************************
 	выводит версию этой утилиты
@@ -101,10 +101,16 @@ static void do_action_get_fw_ver(void){
 static void do_action_get_voltage(void){
 	do_sq(POE_CMD_INP_VOLT, {
 		float v = 0;
-		if(poe_proto == 2){
+		switch(poe_proto){
+		case 2:
 			v = (x * 35.7 / 1024);
-		}else if(poe_proto == 3){
+			break;
+		case 3:
+		case 4:
 			v = x / 100.;
+			break;
+		default:
+			break;
 		}
 		printf("  %s: %.2f%s\n", "voltage", v, need_coma());
 	});
@@ -117,9 +123,12 @@ static void do_action_get_temperature(void){
 	do_sq(POE_CMD_TEMPERAT, {
 		int c = 0;
 		//в обоих случаях зависимость линейная
-		if(poe_proto == 2){
+		switch(poe_proto){
+		case 2:
 			c = x - 273; //переходим на градусы Цельсия из Кельвинов
-		}else if(poe_proto == 3){
+			break;
+		case 3:
+		case 4:
 			/* 12 значений(блок) => 5 делений температуры ! */
 			int n = x / 12; //номер блока
 			int o = x - n * 12; //остаток - хвост после блока
@@ -130,6 +139,9 @@ static void do_action_get_temperature(void){
 			if(o > 6) c += 3; else
 			if(o > 4) c += 2; else
 			if(o > 2) c += 1;
+			break;
+		default:
+			break;
 		}
 		printf("  %s: %d%s\n", "temperature", c, need_coma());
 	});
@@ -138,18 +150,27 @@ static void do_action_get_temperature(void){
 /*************************************************************************************
 	возвращает массив с текущим состоянием PoE портов
 */
-static uint8_t *get_poe_ports_state(void){
+static uint8_t *get_poe_ports_config(void){
 	int a;
-	static uint8_t nps[POE_PORTS_N];
-	uint8_t *ansv = spidev_query(spidev_fd, POE_CMD_STATE, 0, 0);
-	uint32_t x = ansv[0] << 8 | ansv[1];
-	for(a = 0; a < POE_PORTS_N; a++){
-		if(poe_proto == 2){
-			nps[a] = x & 0xF;
-		} else if(poe_proto == 3){
-			nps[POE_PORTS_N - a - 1] = x & 0xF;
+	static uint8_t nps[POE_CMD_PORTS_MAX];
+	if(poe_proto == 4){
+		// For now ignore
+		memset(nps, 0xff, POE_CMD_PORTS_MAX);
+	}else{
+		uint8_t *ansv = spidev_query(spidev_fd, POE_CMD_STATE, 0, 0);
+		uint32_t x = ansv[0] << 8 | ansv[1];
+		for(a = 0; a < POE_PORTS_N; a++){
+			switch(poe_proto){
+			case 2:
+				nps[a] = x & 0xF;
+				break;
+			case 3:
+				nps[POE_PORTS_N - a - 1] = x & 0xF;
+			default:
+				break;
+			}
+			x >>= 4;
 		}
-		x >>= 4;
 	}
 	return nps;
 }//-----------------------------------------------------------------------------------
@@ -158,48 +179,96 @@ static uint8_t *get_poe_ports_state(void){
 /*************************************************************************************
 	возвращает массив с текущим потреблением(mA) PoE портов
 */
-static int *get_poe_ports_cons(void){
+static int *get_poe_ports_status(void){
 	int a;
-	static int npc[POE_PORTS_N];
+	static int npc[POE_CMD_PORTS_MAX];
 	int x;
 	for(a = 0; a < POE_PORTS_N; a++){
 		//порты и номера команд обратны друг другу
-		int cmd = POE_CMD_PORT_STATE_BASE + POE_PORTS_N - 1 - a;
+		int cmd = POE_CMD_PORT_STATE_BASE + poe_boards[board].port_state_map[a];
 		uint8_t *ansv = spidev_query(spidev_fd, cmd, 0, 0);
 		x = ansv[0] << 8 | ansv[1];
-		//если старший бит == 1 то порт отключен(off или КЗ или auto-on и нет нагрузки)
-		if(x & 0x8000){
-			if(x == 0x800A){ //если значение 0x800A то это КЗ
-				x = -111;
-			}else{
-				x = -1; //к порту просто ничего не подключено или он off
-			}
-		}
 		npc[a] = x;
 	}
 	return npc;
 }//-----------------------------------------------------------------------------------
 
 /*************************************************************************************
+        выводит данные о состоянии PoE(включено ли пое, на каких портах и в каком режиме)
+*/
+static void show_poe_config(uint8_t *nps, int n){
+	int a;
+	printf("  poe_config: [ ");
+	for(a = 0; a < n; a++){
+		switch(nps[a])
+		{
+		case 0:
+			printf("off");
+			break;
+		case 1:
+			printf("on");
+			break;
+		case 2:
+			printf("auto");
+			break;
+		default:
+			printf("n/a");
+			break;
+		}
+		if(a + 1 < POE_PORTS_N)
+		{
+			printf(", ");
+		}
+	}
+	printf(" ]%s\n", need_coma());
+}//-----------------------------------------------------------------------------------
+
+/*************************************************************************************
 	выводит данные о состоянии PoE(включено ли пое, на каких портах и в каком режиме)
 */
-static void do_action_get_poe(void){
+static void show_poe_status(void){
 	int a;
-	uint8_t *nps = get_poe_ports_state();
-	int *npc = get_poe_ports_cons();
-	scobs({
-		printf("  %s: [ ", "poe_state");
-		for(a = 0; a < POE_PORTS_N; a++){
-			printf("%d%s ", nps[a], a + 1 < POE_PORTS_N ? "," : "");
+	int *npc = get_poe_ports_status();
+	printf("  poe_status: [ ");
+	for(a = 0; a < POE_PORTS_N; a++){
+		//если старший бит == 1 то порт отключен(off или КЗ или auto-on и нет нагрузки)
+		switch(npc[a]){
+		case 0x8001: //auto - waiting for load
+			printf("auto");
+			break;
+		case 0x800A: //если значение 0x800A то это КЗ
+			printf("short");
+			break;
+		case 0x800F: //forced on - no load
+			printf("on");
+			break;
+		default:
+			if(npc[a] & 0x8000){
+				printf("off"); //к порту просто ничего не подключено или он off
+			}else{
+				printf("%d", npc[a]);
+			}
+			break;
 		}
-		printf("],\n");
-		printf("  %s: [ ", "poe_cons");
-		for(a = 0; a < POE_PORTS_N; a++){
-			printf("%d%s ", npc[a], a + 1 < POE_PORTS_N ? "," : "");
+		if(a + 1 < POE_PORTS_N)
+		{
+			printf(", ");
 		}
-		printf("]%s\n", need_coma());
-	});
+	}
+	printf(" ]%s\n", need_coma());
 }//-----------------------------------------------------------------------------------
+
+/*************************************************************************************
+        выводит данные о состоянии PoE(включено ли пое, на каких портах и в каком режиме)
+*/
+static void do_action_get_poe(void){
+	scobs({
+		if(poe_proto < 4){
+			show_poe_config(get_poe_ports_config(), POE_PORTS_N);
+		}
+		show_poe_status();
+	});
+}
 
 /*************************************************************************************
 	устанавливает состояние определенного PoE порта
@@ -219,8 +288,8 @@ static void __set_poe(int port, int val){
 	action для устанавки состояние определенного PoE порта
 */
 static void do_action_set_poe(void){
-	if(port < 0 || port > 3)
-		die_and_mess(-20, "port value must be 0..3");
+	if(port < 0 || port >= POE_PORTS_N)
+		die_and_mess(-20, "port value must be 0..%d", POE_PORTS_N);
 	if(val < 0 || val > 2)
 		die_and_mess(-20, "PoE value must be 0..2");
 	__set_poe(port, val);
@@ -241,7 +310,7 @@ static void do_action_load_poe_from_uci(void){
 	int a;
 	int processed_ports = 0;
 	//получмм текущее состояние poe портов
-	uint8_t *nps = get_poe_ports_state();
+	uint8_t *nps = get_poe_ports_config();
 	ctx = uci_alloc_context();
 	if(!ctx)
 		die_and_mess(-22, "Can't alloc UCI context: %s", strerror(errno));
@@ -279,11 +348,7 @@ static void do_action_load_poe_from_uci(void){
 	scobs({
 		printf("  status: \"ok\",\n");
 		printf("  processed_ports: %d,\n", processed_ports);
-		printf("  %s: [ ", "poe_state");
-		for(a = 0; a < POE_PORTS_N; a++){
-			printf("%d%s ", nps[a], a + 1 < POE_PORTS_N ? "," : "");
-		}
-		printf("]%s\n", need_coma());
+		show_poe_config(nps, POE_PORTS_N);
 	});
 }//-----------------------------------------------------------------------------------
 
@@ -303,54 +368,6 @@ static void do_action_info(){
 
 
 /*************************************************************************************
-	выполняет парсинг hex строки вида "0D 23 4C 56" возвращая ответ в виде массива байт
-	не забывай освобождать память массива с результатом !!!
-*/
-static uint8_t *parse_hex_str(char *str, size_t *ret_len){
-	char byte[3]; //для символов байта
-	int a, nw;
-	uint8_t *res = NULL;
-	uint8_t *p = NULL;
-	size_t len = 0;
-	*ret_len = 0;
-	/* делаем два прохода. в первом считаем размер для массива результата
-		 а во втором парсим каждый найденный байт(его символы) */
-	for(nw = 0; nw < 2; nw++){
-		memset(byte, '\0', sizeof(byte));
-		if(nw){ //если это второй проход цыкла
-			if(len == 0)
-				return NULL;
-			res = malloc(len);
-			if(!res)
-				return NULL;
-			p = res;
-		}
-		for(a = 0; a < strlen(str) + 1; a++){
-			if((str[a] == ' ') || (str[a] == '\0')){
-				if(byte[0] == '\0')
-					continue;
-				goto recogn;
-			}
-			if(byte[0] == '\0'){
-				byte[0] = str[a];
-			}else{
-				byte[1] = str[a];
-				goto recogn;
-			}
-			continue;
-	recogn:
-			if(nw)
-				*(p++) = strtol(byte, NULL, 16);
-			else
-				len++;
-			memset(byte, '\0', sizeof(byte));
-		}
-	}
-	*ret_len = len;
-	return res;
-}//-----------------------------------------------------------------------------------
-
-/*************************************************************************************
 	отправляет "сырую" команду состоящую из байтов заданных в raw_hex_val
 */
 static void do_action_raw_send(){
@@ -358,7 +375,15 @@ static void do_action_raw_send(){
 	check_for_needed_params("raw_hex_val");
 	size_t tx_len = 0;
 	size_t rx_len = 0;
-	uint8_t *tx_data = parse_hex_str(raw_hex_val, &tx_len);
+	uint8_t tx_data[(strlen(raw_hex_val)+1)/2];
+	char *ptr = raw_hex_val;
+	int n=0;
+	while(sscanf(ptr+=n, "%x%n", &a, &n) == 1)
+	{
+	    tx_data[tx_len++] = a;
+	}
+	if(tx_len == 0)
+		return;
 	uint8_t *rx_data = spidev_raw_query(spidev_fd, tx_data, tx_len);
 	if(rx_data > 0)
 		rx_len = tx_len;
@@ -373,8 +398,6 @@ static void do_action_raw_send(){
 			printf("%s0x%02X", a > 0 ? " " : "", rx_data[a]);
 		printf("\"\n");
 	});
-	if(tx_data)
-		free(tx_data);
 	if(rx_data)
 		free(rx_data);
 }//-----------------------------------------------------------------------------------
@@ -415,30 +438,12 @@ static void do_action(){
 	my_action_react(my_action->cb());
 }//-----------------------------------------------------------------------------------
 
-#define POE_BOARD_NAME_LEN 32
-struct poe_board {
-	char name[POE_BOARD_NAME_LEN];
-	int ver;
-};
-
-/*************************************************************************************
-	все изместные нам PoE устройства */
-struct poe_board poe_boards[ ] = {
-	{ /* RouterBOARD 750P r2, RouterBOARD 750UP r2*/
-		.name = "rb-750p-pbr2",
-		.ver = 2
-	}, { /* RouterBOARD 960PGS */
-		.name = "mikrotik,routerboard-960pgs",
-		.ver = 3
-	}
-};//----------------------------------------------------------------------------------
-
 /*************************************************************************************
 	пытается по модели устройства определить версию poe протокола. */
-char *try_to_detect_poe_proto(int fallback_val){
+char *try_to_detect_poe_board(int fallback_val){
 	static char res[8];
 	char buf[POE_BOARD_NAME_LEN];
-	int ver = fallback_val;
+	int board_index = fallback_val;
 	int fd = -1;
 	size_t len;
 	fd = open(BOARD_NAME_FILE, O_RDONLY);
@@ -449,17 +454,18 @@ char *try_to_detect_poe_proto(int fallback_val){
 			buf[len] = '\0';
 			if(len > 0 && buf[len - 1] == '\n')
 				buf[len - 1] = '\0';
-			for(a = 0; a < sizeof(poe_boards) / sizeof(poe_boards[0]); a++){
+			for(a = 0; a < BOARDS_NUM; a++){
 				if((strlen(buf) == strlen(poe_boards[a].name)) && !strcmp(buf, poe_boards[a].name)){
-					ver = poe_boards[a].ver;
+					board_index = a;
 				}
 			}
 		}
 		close(fd);
 	}
-	snprintf(res, sizeof(res), "%d", ver);
+	snprintf(res, sizeof(res), "%d", board_index);
 	return res;
 }//-----------------------------------------------------------------------------------
+
 
 /*************************************************************************************
 	main
@@ -471,12 +477,18 @@ int main(int argc, char *argv[]){
 	memset(passed_options, 0x0, sizeof(passed_options));
 	//парсим переданные нам опции
 	parse_options(argc, argv);
-	if(!poe_proto) //если протокол poe не был задан
-		add_default_if_not_set(poe_proto, try_to_detect_poe_proto(0));
-	if(!poe_proto){ //если версию пое так определить и не удалось
-		die_and_mess(100, "Unsupported PoE device !");
-		//то лучше дальше не продолжать. вдруг устройство вообще не имеет poe!
+	if(board == 0)
+	{
+		add_default_if_not_set(board, try_to_detect_poe_board(BOARDS_NUM));
+		if(board == BOARDS_NUM)
+			die_and_mess(100, "Unsupported PoE device !");
+	}else
+	{
+		board--;
 	}
+	if(!poe_proto) //если протокол poe не был задан
+		add_default_if_not_set(poe_proto, sprf("%d", poe_boards[board].proto_ver));
+	add_default_if_not_set(dev_file, poe_boards[board].spidev);
 	if(version) //это тоже самое что и --action="get_version"
 		add_default_if_not_set(action, "get_version");
 	//проверим что был передан параметр action. и если он не был передан то:
