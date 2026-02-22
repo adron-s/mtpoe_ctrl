@@ -1,6 +1,6 @@
 Program for manage the Mikrotiks PoE V2 based on a microcontroller ATtiny 461a
 
-Licence is GNU GPL V3
+Licence is GNU GPL V2
 
 Examples of using:
 	mtpoe_ctrl -dumpvars #shows the values of parameter variables
