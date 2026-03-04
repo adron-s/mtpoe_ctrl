@@ -4,5 +4,5 @@
 START=11
 
 start() {
-	/usr/bin/mtpoe_ctrl --action=load_poe_from_uci >/dev/null 2>&1
+	/usr/bin/mtpoe-ctrl --action=load_poe_from_uci >/dev/null 2>&1
 }

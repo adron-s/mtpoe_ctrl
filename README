@@ -13,10 +13,10 @@ Examples of using:
 	mtpoe_ctrl --action=set_poe --port=1 --val=2 #auto-on PoE for port ether3
 	mtpoe_ctrl --action=set_poe --port=2 --val=1 #force-on PoE for port ether4
 	mtpoe_ctrl --action=set_poe --port=3 --val=0 #turn off PoE for port ether5
-	mtpoe_ctrl --action=load_poe_from_uci #load PoE port settings from uci->network->mtik_poe
+	mtpoe_ctrl --action=load_poe_from_uci #load PoE port settings from uci->network->poe
 
-In /etc/config/network the mtik_poe section should be present:
-config mtik_poe
+In /etc/config/network the poe section should be present:
+config poe
 	option port0 '1'
 	option port1 '0'
 	option port2 '1'
@@ -68,3 +68,15 @@ or if you use DTS:
 		spi-max-frequency = <2200000>;
 	};
 };
+
+RB500UPr+S+IN:
+	The board name expected is "mikrotik,rb5009upr".
+	It is expected the appropriate spi device is defined in DT and the PoE is enabled. This is already ensured with
+	patches for this board (also refer to https://forum.openwrt.org/t/mikrotik-rb750-r2-series-poe/7032/68).
+	The get_poe command does not return the ports configuration (0x45), only the status.
+
+Build:
+	1. Copy openwrt/package/utils/mtpoe_ctrl into <openwrt build tree>/package/utils/
+	2. In <openwrt build tree> run 'make menuconfig' and select this new package to build
+	3a. Type 'make' to rebuild the openwrt OR
+	3b. Type 'make package/utils/mtpoe_ctrl/{clean,compile}' to build this package only
